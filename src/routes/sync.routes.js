@@ -4,6 +4,8 @@ const syncController = require('../controllers/sync.controller');
 const router = express.Router();
 
 router.get('/health', syncController.getHealth);
+// TODO: Temporary development endpoint for testing MinIO infrastructure. Remove or protect before production deployment.
+router.get('/buckets', syncController.getBuckets);
 router.post('/sync', syncController.syncMetadata);
 
 module.exports = router;

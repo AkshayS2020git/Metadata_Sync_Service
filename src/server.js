@@ -11,14 +11,3 @@ server.listen(port, () => {
 
 module.exports = server;
 
-const { healthCheck } = require('./clients/minio.client');
-
-(async () => {
-  try {
-    await healthCheck();
-    console.log('✅ Successfully connected to MinIO');
-  } catch (err) {
-    console.error('❌ Failed to connect to MinIO');
-    console.error(err);
-  }
-})();

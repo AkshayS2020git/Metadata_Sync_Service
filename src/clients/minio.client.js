@@ -4,14 +4,13 @@ let minioClientInstance = null;
 
 /**
  * Creates a new MinIO client.
- * This function is private and should only be used internally.
  */
-function createMinioClient() {
-  const endpoint = process.env.MINIO_ENDPOINT;
-  const port = Number(process.env.MINIO_PORT ?? 9000);
-  const useSSL = process.env.MINIO_USE_SSL === 'true';
-  const accessKey = process.env.MINIO_ACCESS_KEY;
-  const secretKey = process.env.MINIO_SECRET_KEY;
+function createMinioClient(config = {}) {
+  const endpoint = config.endpoint ?? process.env.MINIO_ENDPOINT;
+  const port = Number(config.port ?? process.env.MINIO_PORT ?? 9000);
+  const useSSL = config.useSSL ?? process.env.MINIO_USE_SSL === 'true';
+  const accessKey = config.accessKey ?? process.env.MINIO_ACCESS_KEY;
+  const secretKey = config.secretKey ?? process.env.MINIO_SECRET_KEY;
 
   if (!endpoint || !accessKey || !secretKey) {
     throw new Error(
@@ -31,9 +30,9 @@ function createMinioClient() {
 /**
  * Returns the singleton MinIO client.
  */
-function getMinioClient() {
+function getMinioClient(config = {}) {
   if (!minioClientInstance) {
-    minioClientInstance = createMinioClient();
+    minioClientInstance = createMinioClient(config);
   }
 
   return minioClientInstance;
@@ -42,9 +41,7 @@ function getMinioClient() {
 /**
  * Verifies connectivity to MinIO.
  */
-async function healthCheck() {
-  const client = getMinioClient();
-
+async function healthCheck(client = getMinioClient()) {
   await client.listBuckets();
 
   return true;
@@ -53,9 +50,7 @@ async function healthCheck() {
 /**
  * Lists all buckets accessible to the configured service account.
  */
-async function listBuckets() {
-  const client = getMinioClient();
-
+async function listBuckets(client = getMinioClient()) {
   return await client.listBuckets();
 }
 
@@ -64,17 +59,16 @@ async function listBuckets() {
  * @param {string} bucketName
  * @returns {Promise<boolean>}
  */
-async function bucketExists(bucketName) {
+async function bucketExists(bucketName, client = getMinioClient()) {
   if (!bucketName) {
     throw new Error('Bucket name is required.');
   }
-
-  const client = getMinioClient();
 
   return await client.bucketExists(bucketName);
 }
 
 module.exports = {
+  createMinioClient,
   getMinioClient,
   healthCheck,
   listBuckets,
