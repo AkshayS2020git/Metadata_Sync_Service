@@ -140,3 +140,27 @@ The Metadata Synchronization Service connects to a single MinIO server using one
 - Bucket resolution is deterministic.
 - Easier maintenance and deployment.
 
+# Decision 005 — Version Resolution Strategy
+
+## Status
+
+Accepted
+
+## Context
+
+Version information is not reliably available from the TCM payload. Although projects may use Labels, labels are project-specific metadata and cannot be treated as software version identifiers.
+
+## Decision
+
+The Metadata Synchronization Service shall determine the version folder using the following priority:
+
+1. User-specified version override.
+2. Latest available version under the project's `Test_Plan` directory.
+
+The TCM Label field shall not be used for version resolution.
+
+## Consequences
+
+- Synchronization requests no longer require version information.
+- Version management is centralized within the Metadata Synchronization Service.
+- Future projects remain independent of TCM labeling conventions.

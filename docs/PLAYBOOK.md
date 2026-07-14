@@ -529,3 +529,27 @@ Each module should have a single responsibility.
 Any project wishing to integrate with the Metadata Synchronization Service must comply with this standard.
 
 Projects intentionally deviating from these conventions require documented exceptions and corresponding updates to the Metadata Synchronization Service before synchronization is enabled.
+
+
+Feature Level:
+
+Bucket/
+└── Test_Plan/
+    └── Version/
+        └── AP Model/
+            └── Feature/
+                └── Run/
+                    └── metadata.json
+
+
+
+Test-Case Level:
+
+Bucket/
+└── Test_Plan/
+    └── Version/
+        └── AP Model/
+            └── Feature/
+                └── TestCase/
+                    └── Run/
+                        └── metadata.json

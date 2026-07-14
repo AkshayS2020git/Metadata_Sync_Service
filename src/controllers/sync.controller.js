@@ -1,5 +1,7 @@
 const syncService = require('../services/sync.service');
 const minioClient = require('../clients/minio.client');
+const { resolveVersion } = require("../resolvers/version.resolver");
+const { getObject } = require("../clients/minio.client");
 
 exports.getHealth = async (req, res) => {
   try {
@@ -59,4 +61,34 @@ exports.syncMetadata = (req, res) => {
     status: 'received',
     message: 'Synchronization request accepted.',
   });
+};
+
+
+exports.getLatestVersion = async (req, res) => {
+  try {
+    const version = await resolveVersion("legacyruckus");
+
+    return res.status(200).json({
+      version,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: error.message,
+    });
+  }
+};
+
+exports.getMetadata = async (req, res) => {
+  try {
+    const metadata = await getObject(
+      "legacyruckus",
+      "Test_Plan/V7.3/R750/Client Isolation/Run1/metadata.json"
+    );
+
+    return res.status(200).send(metadata);
+  } catch (error) {
+    return res.status(500).json({
+      error: error.message,
+    });
+  }
 };
