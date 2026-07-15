@@ -1,7 +1,10 @@
 const syncService = require('../services/sync.service');
 const minioClient = require('../clients/minio.client');
 const { resolveVersion } = require("../resolvers/version.resolver");
-const { getObject } = require("../clients/minio.client");
+const { discoverMetadata } = require("../services/discovery.service");
+const { readMetadata } = require("../services/metadata.service");
+
+
 
 exports.getHealth = async (req, res) => {
   try {
@@ -50,17 +53,29 @@ exports.getBuckets = async (req, res) => {
   }
 };
 
-exports.syncMetadata = (req, res) => {
-  const result = syncService.acceptSyncRequest(req.body);
+exports.syncMetadata = async (req, res) => {
+  const validation = syncService.acceptSyncRequest(req.body);
 
-  if (!result.success) {
-    return res.status(400).json({ error: result.message });
+  if (!validation.success) {
+    return res.status(400).json({
+      error: validation.message,
+    });
   }
 
-  return res.status(200).json({
-    status: 'received',
-    message: 'Synchronization request accepted.',
-  });
+  try {
+    const result = await syncService.synchronizeMetadata(req.body);
+
+    return res.status(200).json({
+      status: "success",
+      message: "Metadata synchronized successfully.",
+      bucket: result.bucket,
+      objectKey: result.objectKey,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: error.message,
+    });
+  }
 };
 
 
@@ -80,12 +95,17 @@ exports.getLatestVersion = async (req, res) => {
 
 exports.getMetadata = async (req, res) => {
   try {
-    const metadata = await getObject(
-      "legacyruckus",
-      "Test_Plan/V7.3/R750/Client Isolation/Run1/metadata.json"
-    );
+    const payload = {
+      project: "Legacy Ruckus",
+      testRun: "R750",
+      feature: "Client Isolation",
+      run: "Run1",
+    };
 
-    return res.status(200).send(metadata);
+    const { bucket, objectKey } = await discoverMetadata(payload);
+    const metadata = await readMetadata(bucket, objectKey);
+
+    return res.json(metadata);    
   } catch (error) {
     return res.status(500).json({
       error: error.message,

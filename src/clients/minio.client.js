@@ -149,6 +149,37 @@ async function getObject(bucketName, objectKey) {
   });
 }
 
+/**
+ * Uploads a UTF-8 string to the specified object key.
+ *
+ * @param {string} bucketName
+ * @param {string} objectKey
+ * @param {string} content
+ * @returns {Promise<unknown>}
+ */
+async function putObject(bucketName, objectKey, content) {
+  if (!bucketName) {
+    throw new Error("Bucket name is required.");
+  }
+
+  if (!objectKey) {
+    throw new Error("Object key is required.");
+  }
+  if (typeof content !== "string") {
+    throw new Error("Content must be a UTF-8 string.");
+  }
+
+  const client = getMinioClient();
+
+  await client.putObject(
+    bucketName,
+    objectKey,
+    Buffer.from(content, "utf8")
+);
+
+return true;
+}
+
 module.exports = {
   getMinioClient,
   healthCheck,
@@ -156,4 +187,5 @@ module.exports = {
   bucketExists,
   listObjects,
   getObject,
+  putObject,
 };

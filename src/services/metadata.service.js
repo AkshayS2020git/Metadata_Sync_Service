@@ -1,32 +1,69 @@
-const { readMetadata } = require("../services/metadata.service");
+const { getObject, putObject } = require("../clients/minio.client");
 
+/**
+ * Reads and parses a metadata.json file.
+ */
 async function readMetadata(bucketName, objectKey) {
-    if (!bucketName) {
-        throw new Error("Bucket name is required.");
-    }
+  if (!bucketName) {
+    throw new Error("Bucket name is required.");
+  }
 
-    if (!objectKey) {
-        throw new Error("Object key is required.");
-    }
+  if (!objectKey) {
+    throw new Error("Object key is required.");
+  }
 
-    const metadata = await readMetadata(
-        "legacyruckus",
-        "Test_Plan/V7.3/R750/Client Isolation/Run1/metadata.json"
+  const metadataContent = await getObject(
+    bucketName,
+    objectKey
+  );
+
+  let metadata;
+
+  try {
+    metadata = JSON.parse(metadataContent);
+  } catch (err) {
+    throw new Error(
+      `Invalid JSON in metadata file: ${objectKey}`
     );
+  }
 
-    let metadata;
+  return metadata;
+}
 
-    try {
-        metadata = JSON.parse(metadataContent);
-    } catch (err) {
-        throw new Error(
-            `Invalid JSON in metadata file: ${objectKey}`
-        );
-    }
+/**
+ * Writes a metadata object back to MinIO.
+ */
+async function writeMetadata(bucketName, objectKey, metadata) {
+  if (!bucketName) {
+    throw new Error("Bucket name is required.");
+  }
 
-    return metadata;
+  if (!objectKey) {
+    throw new Error("Object key is required.");
+  }
+
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    throw new Error("Metadata object is required.");
+  }
+
+  let json;
+
+  try {
+    json = JSON.stringify(metadata, null, 2);
+  } catch (err) {
+    throw new Error("Failed to serialize metadata.");
+  }
+
+  await putObject(
+    bucketName,
+    objectKey,
+    json
+  );
+
+  return true;
 }
 
 module.exports = {
-    readMetadata,
+  readMetadata,
+  writeMetadata,
 };

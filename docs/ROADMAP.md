@@ -134,19 +134,19 @@ The service can automatically resolve the project bucket, determine the latest a
 
 ---
 
-# Sprint 4 — Metadata Reader
+# Sprint 4 — Metadata Reader/Write Infrastructure 
 
 ## Objective
 
 Read metadata from MinIO.
 
-### Deliverables
+### Completed
 
-- [ ] Object existence verification
-- [ ] List objects
-- [ ] Read metadata.json
-- [ ] Parse JSON
-- [ ] Metadata validation
+- [x] Implemented MinIO putObject helper
+- [x] Added writeMetadata service
+- [x] Implemented JSON serialization for metadata updates
+- [x] Verified end-to-end metadata read/write
+- [x] Successfully updated existing metadata.json in MinIO
 
 ### Outcome
 
@@ -167,6 +167,22 @@ Update metadata with execution information.
 - [ ] Feature-level updates
 - [ ] Test case-level updates
 - [ ] Metadata validation
+
+### Finalized Payload
+
+#### Routing Fields
+- project
+- versionOverride (optional)
+- testRun
+- feature
+- testCase (optional)
+- run
+
+#### Metadata Fields
+- label
+- status
+- executedBy
+- executedAt
 
 ### Outcome
 
