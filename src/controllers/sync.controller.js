@@ -1,26 +1,24 @@
-const syncService = require('../services/sync.service');
-const minioClient = require('../clients/minio.client');
+const syncService = require("../services/sync.service");
+const minioClient = require("../clients/minio.client");
 const { resolveVersion } = require("../resolvers/version.resolver");
 const { discoverMetadata } = require("../services/discovery.service");
 const { readMetadata } = require("../services/metadata.service");
-
-
 
 exports.getHealth = async (req, res) => {
   try {
     await minioClient.healthCheck();
 
     return res.status(200).json({
-      status: 'healthy',
-      service: 'Metadata Sync Service',
+      status: "healthy",
+      service: "Metadata Sync Service",
       minio: {
         available: true,
       },
     });
   } catch (error) {
     return res.status(503).json({
-      status: 'degraded',
-      service: 'Metadata Sync Service',
+      status: "degraded",
+      service: "Metadata Sync Service",
       minio: {
         available: false,
         error: error.message,
@@ -29,22 +27,18 @@ exports.getHealth = async (req, res) => {
   }
 };
 
-
 /**
  * Temporary development endpoint.
  * Used to verify MinIO connectivity and bucket discovery.
  * Remove or secure before production deployment.
  */
-
-
 exports.getBuckets = async (req, res) => {
   try {
     const buckets = await minioClient.listBuckets();
-    const bucketNames = buckets.map((bucket) => bucket.name);
 
     return res.status(200).json({
-      count: bucketNames.length,
-      buckets: bucketNames,
+      count: buckets.length,
+      buckets: buckets.map((bucket) => bucket.name),
     });
   } catch (error) {
     return res.status(503).json({
@@ -69,15 +63,16 @@ exports.syncMetadata = async (req, res) => {
       status: "success",
       message: "Metadata synchronized successfully.",
       bucket: result.bucket,
-      objectKey: result.objectKey,
+      metadataPath: result.metadataPath,
     });
   } catch (error) {
+    console.error("[sync]", error);
+
     return res.status(500).json({
       error: error.message,
     });
   }
 };
-
 
 exports.getLatestVersion = async (req, res) => {
   try {
@@ -93,19 +88,36 @@ exports.getLatestVersion = async (req, res) => {
   }
 };
 
+/**
+ * Development endpoint.
+ *
+ * Reads any metadata.json using query parameters.
+ *
+ * Example:
+ * /metadata?project=Legacy%20Ruckus
+ * &testRun=R750_May4_May8
+ * &feature=Client%20Isolation
+ * &run=Run1
+ * &case_ref_id=TC_1
+ */
 exports.getMetadata = async (req, res) => {
   try {
     const payload = {
-      project: "Legacy Ruckus",
-      testRun: "R750",
-      feature: "Client Isolation",
-      run: "Run1",
+      project: req.query.project,
+      testRun: req.query.testRun,
+      feature: req.query.feature,
+      run: req.query.run,
+      case_ref_id: req.query.case_ref_id,
     };
 
-    const { bucket, objectKey } = await discoverMetadata(payload);
-    const metadata = await readMetadata(bucket, objectKey);
+    const prepared =
+      await syncService.prepareMetadataSynchronization(payload);
 
-    return res.json(metadata);    
+    return res.status(200).json({
+      bucket: prepared.bucket,
+      metadataPath: prepared.metadataPath,
+      metadata: prepared.existingMetadata,
+    });
   } catch (error) {
     return res.status(500).json({
       error: error.message,

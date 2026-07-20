@@ -1,6 +1,6 @@
 function buildExecutionMetadata(payload) {
   return {
-    label: payload.label,
+    test_case: payload.test_case,
     status: payload.status,
     executedBy: payload.executedBy,
     executedAt: payload.executedAt,
