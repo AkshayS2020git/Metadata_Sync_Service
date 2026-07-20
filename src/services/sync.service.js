@@ -97,6 +97,8 @@ async function prepareMetadataSynchronization(payload, dependencies = {}) {
   const getVersion =
     dependencies.resolveVersion ?? resolveVersion;
 
+  console.log("[sync] Override Path:", payload.custom_minio_path);
+
   const getRepository =
     dependencies.discoverRepositoryType ??
     discoverRepositoryType;
@@ -168,8 +170,17 @@ console.log("[sync] Run Parent:", runParentPath);
 
     console.log("[sync] Run Path:", runPath);
 
-  const metadataPath =
-    `${runPath}${METADATA_FILE_NAME}`;
+  let metadataPath = `${runPath}${METADATA_FILE_NAME}`;
+
+if (payload.custom_minio_path) {
+  const override = payload.custom_minio_path
+    .trim()
+    .replace(/[\\/]+$/, "");
+
+  metadataPath = override.toLowerCase().endsWith("metadata.json")
+    ? override
+    : `${override}/${METADATA_FILE_NAME}`;
+}
 
     console.log("[sync] Metadata Path:", metadataPath);
 
