@@ -1,5 +1,8 @@
 const { resolveBucket } = require("../resolvers/bucket.resolver");
 const { resolveVersion } = require("../resolvers/version.resolver");
+const { 
+  hasDuplicateExecution,
+} = require("../helpers/metadataDuplicate.helper");
 const {
     findInvalidPathSegment,
 } = require("../helpers/pathValidation.helper");
@@ -136,9 +139,9 @@ async function prepareMetadataSynchronization(payload, dependencies = {}) {
   ].join("/");
 
   console.log("[sync] Bucket:", bucket);
-console.log("[sync] Version:", version);
-console.log("[sync] AP Model:", apModel);
-console.log("[sync] Feature Folder:", featureFolder);
+  console.log("[sync] Version:", version);
+  console.log("[sync] AP Model:", apModel);
+  console.log("[sync] Feature Folder:", featureFolder);
 
   const repositoryDiscovery =
     await getRepository(
@@ -146,7 +149,13 @@ console.log("[sync] Feature Folder:", featureFolder);
       featureFolder
     );
 
-    console.log("[sync] Repository Discovery:", repositoryDiscovery);
+  console.log("[sync] Repository Discovery:", repositoryDiscovery);
+
+  const caseRefId = normalizeCaseRefId(
+    payload.case_ref_id ??
+    payload.testCase ??
+    null
+  );
 
   const {
     runParentPath,
@@ -155,13 +164,12 @@ console.log("[sync] Feature Folder:", featureFolder);
     repositoryDiscovery,
     featureFolder,
     payload.run,
-    normalizeCaseRefId(
-  payload.case_ref_id ?? payload.testCase ?? null),
-      payload.test_case
+    caseRefId,
+    payload.test_case
   );
 
   console.log("[sync] Repository Type:", repositoryType);
-console.log("[sync] Run Parent:", runParentPath);
+  console.log("[sync] Run Parent:", runParentPath);
 
   const { runPath } =
     await getRunDirectory(
@@ -170,68 +178,88 @@ console.log("[sync] Run Parent:", runParentPath);
       payload.run
     );
 
-    console.log("[sync] Run Path:", runPath);
+  console.log("[sync] Run Path:", runPath);
 
   let metadataPath = `${runPath}${METADATA_FILE_NAME}`;
 
-if (payload.custom_minio_path) {
-  const override = payload.custom_minio_path
-    .trim()
-    .replace(/[\\/]+$/, "");
+  if (payload.custom_minio_path) {
+    const override = payload.custom_minio_path
+      .trim()
+      .replace(/[\\/]+$/, "");
 
-  metadataPath = override.toLowerCase().endsWith("metadata.json")
-    ? override
-    : `${override}/${METADATA_FILE_NAME}`;
-}
+    metadataPath = override.toLowerCase().endsWith("metadata.json")
+      ? override
+      : `${override}/${METADATA_FILE_NAME}`;
+  }
 
-    console.log("[sync] Metadata Path:", metadataPath);
+  console.log("[sync] Metadata Path:", metadataPath);
 
   let existingMetadata;
 
+  // Only responsible for reading metadata.json
   try {
     console.log("[sync] Reading metadata.json...");
-    existingMetadata =
-      await getMetadata(
+
+    existingMetadata = await getMetadata(
+      bucket,
+      metadataPath
+    );
+
+    console.log("[sync] Metadata loaded successfully.");
+  } catch (error) {
+    const invalid =
+      await findInvalidPathSegment(
         bucket,
         metadataPath
       );
-      console.log("[sync] Metadata loaded successfully.");
-  } catch (error) {
 
-    const invalid =
-        await findInvalidPathSegment(
-            bucket,
-            metadataPath
-        );
-
-    const syncError = new Error("File not found. Please check the specified path.");
+    const syncError = new Error(
+      "File not found. Please check the specified path."
+    );
 
     syncError.code = "FILE_NOT_FOUND";
     syncError.metadataPath = metadataPath;
 
     if (invalid) {
-        syncError.invalidSegment = invalid.invalidSegment;
-        syncError.invalidPrefix = invalid.invalidPrefix;
+      syncError.invalidSegment = invalid.invalidSegment;
+      syncError.invalidPrefix = invalid.invalidPrefix;
     }
 
     throw syncError;
-}
+  }
 
+  // Business validation happens AFTER the file has been read
+  const duplicateExists = hasDuplicateExecution(
+    existingMetadata,
+    repositoryType,
+    caseRefId
+  );
+
+  console.log("[sync] Duplicate Exists:", duplicateExists);
+
+  if (duplicateExists && !payload.overwrite) {
+    const syncError = new Error(
+      "Metadata already exists for this Case Ref ID."
+    );
+
+    syncError.code = "CASE_REF_ALREADY_EXISTS";
+    syncError.caseRefId = caseRefId;
+
+    throw syncError;
+  }
 
   return {
     bucket,
     version,
     repositoryType,
     metadataPath,
-    caseRefId:
-      payload.case_ref_id ??
-      payload.testCase ??
-      null,
+    caseRefId,
     existingMetadata,
     executionMetadata:
       buildExecutionMetadata(payload),
   };
 }
+
 
 async function synchronizeMetadata(
   payload,

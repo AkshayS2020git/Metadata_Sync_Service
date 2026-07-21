@@ -79,6 +79,14 @@ exports.syncMetadata = async (req, res) => {
       });
     }
 
+    if (error.code === "CASE_REF_ALREADY_EXISTS") {
+      return res.status(409).json({
+        errorCode: error.code,
+        message: error.message,
+        caseRefId: error.caseRefId,
+      });
+    }
+
     return res.status(500).json({
       error: error.message,
     });

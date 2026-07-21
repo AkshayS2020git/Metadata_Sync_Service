@@ -13,6 +13,8 @@ function normalizeFolderPath(folderPath) {
  * Remove this helper once all testcase repositories follow the Integration
  * Guidelines and are named using case_ref_id (TC_<id>).
  */
+
+
 function resolveLegacyTestcaseDirectory(testcaseDirectories, testcaseLabel) {
   if (!testcaseLabel) {
     return null;
