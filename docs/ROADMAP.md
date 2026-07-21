@@ -1,12 +1,14 @@
 # Metadata Synchronization Service Roadmap
 
-**Version:** 1.0
+**Version:** 2.0
 
 ---
 
 # Project Objective
 
-Develop a standalone Metadata Synchronization Service that automatically synchronizes execution data from the Test Case Management (TCM) platform into MinIO by locating and updating the appropriate `metadata.json` files without requiring project-specific implementations.
+Develop a standalone Metadata Synchronization Service that automatically synchronizes execution data from the Test Case Management (TCM) platform into MinIO by locating, validating, updating, and synchronizing the appropriate `metadata.json` files without requiring project-specific implementations.
+
+The service acts as an independent middleware between TCM and MinIO, encapsulating all storage-specific logic while allowing TCM to remain agnostic of the underlying metadata structure.
 
 ---
 
@@ -25,7 +27,11 @@ Submit
 
 ↓
 
-TCM
+TCM updates execution
+
+↓
+
+Synchronization Payload Generated
 
 ↓
 
@@ -45,23 +51,35 @@ Resolve Version
 
 ↓
 
-Discover metadata.json
+Resolve Metadata Path
 
 ↓
 
-Read metadata
+Validate Path
 
 ↓
 
-Update metadata
+Download metadata.json
 
 ↓
 
-Write metadata
+Duplicate Detection
 
 ↓
 
-Success Response
+Merge Execution Metadata
+
+↓
+
+Upload metadata.json
+
+↓
+
+Return Synchronization Result
+
+↓
+
+Update Metadata Sync Status
 ```
 
 ---
@@ -72,7 +90,7 @@ Success Response
 
 Create the standalone Metadata Synchronization Service.
 
-### Deliverables
+### Completed
 
 - [x] Express application scaffold
 - [x] Layered architecture
@@ -80,11 +98,11 @@ Create the standalone Metadata Synchronization Service.
 - [x] Health endpoint
 - [x] Synchronization endpoint
 - [x] Initial project structure
-- [x] Unit tests
+- [x] Basic service testing
 
 ### Outcome
 
-A standalone service capable of receiving synchronization requests.
+A standalone service capable of receiving synchronization requests through REST APIs.
 
 ---
 
@@ -94,20 +112,19 @@ A standalone service capable of receiving synchronization requests.
 
 Establish communication between the Metadata Synchronization Service and MinIO.
 
-### Deliverables
+### Completed
 
-- [x] Install MinIO SDK
+- [x] Installed MinIO SDK
 - [x] Environment configuration
 - [x] Singleton MinIO client
-- [x] MinIO connectivity verification
+- [x] Connectivity verification
+- [x] Bucket existence validation
 - [x] Bucket enumeration
-- [x] Bucket existence verification
 - [x] Health endpoint integration
-- [x] Temporary bucket discovery endpoint
 
 ### Outcome
 
-Successfully established authenticated communication with the MinIO server.
+Reliable authenticated communication with MinIO established.
 
 ---
 
@@ -115,42 +132,48 @@ Successfully established authenticated communication with the MinIO server.
 
 ## Objective
 
-Translate synchronization requests into the corresponding MinIO metadata location through a modular resolver pipeline.
+Translate synchronization requests into the correct metadata location.
 
 ### Completed
 
 - [x] Bucket Resolver
 - [x] Version Resolver
 - [x] Object Key Resolver
-- [x] Metadata Service
-- [x] Discovery Service
-- [x] Support Feature-Level metadata
-- [x] Support Test-Case-Level metadata
-- [x] Support Run-level metadata
-- [x] Automatic latest version discovery
+- [x] Metadata Discovery Service
+- [x] Automatic latest version resolution
+- [x] Feature-Level Metadata support
+- [x] Test Case-Level Metadata support
+- [x] Run-Level Metadata support
+- [x] Auto-generated metadata path
+- [x] Custom MinIO path support
+- [x] Folder path support
+- [x] Explicit metadata.json path support
+
 ### Outcome
 
-The service can automatically resolve the project bucket, determine the latest available version, construct the expected MinIO object key, and prepare metadata discovery.
+The service can accurately locate metadata without project-specific implementations.
 
 ---
 
-# Sprint 4 — Metadata Reader/Write Infrastructure 
+# Sprint 4 — Metadata Reader / Writer Infrastructure
 
 ## Objective
 
-Read metadata from MinIO.
+Read and write metadata within MinIO.
 
 ### Completed
 
-- [x] Implemented MinIO putObject helper
-- [x] Added writeMetadata service
-- [x] Implemented JSON serialization for metadata updates
-- [x] Verified end-to-end metadata read/write
-- [x] Successfully updated existing metadata.json in MinIO
+- [x] Metadata download helper
+- [x] Metadata upload helper
+- [x] JSON serialization
+- [x] JSON parsing
+- [x] Read existing metadata.json
+- [x] Update metadata.json
+- [x] End-to-end read/write verification
 
 ### Outcome
 
-Metadata can be safely retrieved from MinIO.
+Reliable metadata persistence implemented.
 
 ---
 
@@ -158,66 +181,67 @@ Metadata can be safely retrieved from MinIO.
 
 ## Objective
 
-Update metadata with execution information.
-
-### Deliverables
-
-- [ ] Metadata Formatter
-- [ ] Merge execution data
-- [ ] Feature-level updates
-- [ ] Test case-level updates
-- [ ] Metadata validation
+Merge execution information into metadata.
 
 ### Completed
 
 - [x] Payload validation
 - [x] Metadata discovery
-- [x] Metadata read
-- [x] Execution metadata extraction
+- [x] Metadata reading
 - [x] Metadata merge
-- [x] Metadata write
-- [x] End-to-end synchronization verified
+- [x] Metadata writing
+- [x] Execution metadata extraction
+- [x] Metadata formatter
+- [x] End-to-end synchronization
 
-
-### Finalized Payload
+### Payload
 
 #### Routing Fields
+
 - project
-- versionOverride (optional)
+- versionOverride
 - testRun
 - feature
-- testCase (optional)
+- testCase
 - run
+- custom_minio_path
 
 #### Metadata Fields
-- label
+
+- case_ref_id
 - status
+- label
 - executedBy
 - executedAt
+- firmware
+- overwrite
 
 ### Outcome
 
-Execution data is merged into metadata before upload.
+Execution data is successfully merged into metadata before upload.
 
 ---
 
-# Sprint 6 — Metadata Writer
+# Sprint 6 — Metadata Validation & Conflict Resolution
 
 ## Objective
 
-Persist updated metadata into MinIO.
+Improve synchronization reliability through validation and duplicate handling.
 
-### Deliverables
+### Completed
 
-- [ ] Upload metadata.json
-- [ ] Object overwrite
-- [ ] Upload validation
-- [ ] Error handling
-- [ ] Rollback strategy (if required)
+- [x] metadata.json existence validation
+- [x] Invalid folder detection
+- [x] Invalid path detection
+- [x] Detailed validation errors
+- [x] Duplicate case_ref_id detection
+- [x] HTTP 409 duplicate response
+- [x] Overwrite request support
+- [x] Metadata replacement on overwrite
 
 ### Outcome
 
-Updated metadata is written back to MinIO.
+The service safely prevents accidental duplicate metadata while allowing controlled overwrites.
 
 ---
 
@@ -225,19 +249,24 @@ Updated metadata is written back to MinIO.
 
 ## Objective
 
-Integrate the Metadata Synchronization Service with TCM.
+Integrate Metadata Synchronization Service into TCM.
 
-### Deliverables
+### Completed
 
-- [ ] Build final synchronization payload
-- [ ] Trigger synchronization from Submit
-- [ ] Handle synchronization responses
-- [ ] Logging
-- [ ] Failure handling
+- [x] Synchronization payload generation
+- [x] Submit workflow integration
+- [x] Metadata synchronization trigger
+- [x] Synchronization response handling
+- [x] Synchronization status tracking
+- [x] Metadata sync error storage
+- [x] Frontend overwrite confirmation
+- [x] Retry synchronization with overwrite
+- [x] Submit button state management
+- [x] Error propagation to UI
 
 ### Outcome
 
-Submitting execution data in TCM automatically synchronizes metadata.
+Submitting an execution automatically synchronizes metadata while providing user feedback for conflicts and failures.
 
 ---
 
@@ -245,21 +274,29 @@ Submitting execution data in TCM automatically synchronizes metadata.
 
 ## Objective
 
-Prepare the service for production deployment.
+Prepare the Metadata Synchronization Service for production deployment.
 
-### Deliverables
+### Completed
 
-- [ ] End-to-end testing
-- [ ] Integration testing
-- [ ] Logging improvements
-- [ ] Configuration review
-- [ ] Documentation updates
-- [ ] Performance validation
-- [ ] Security review
+- [x] End-to-end synchronization validation
+- [x] Request validation
+- [x] Error propagation
+- [x] Synchronization logging
+- [x] Production-ready API contract
+- [x] Developer documentation
+- [x] Integration playbook
+
+### Remaining
+
+- [ ] Performance benchmarking
+- [ ] Load testing
+- [ ] Automated integration tests
+- [ ] Retry queue
+- [ ] Audit logging
 
 ### Outcome
 
-Production-ready Metadata Synchronization Service.
+The Metadata Synchronization Service is functionally production-ready and documented for future maintenance.
 
 ---
 
@@ -267,15 +304,17 @@ Production-ready Metadata Synchronization Service.
 
 Potential future improvements include:
 
-- [ ] Metadata preview endpoint
-- [ ] Path resolution endpoint
-- [ ] Version browsing endpoint
-- [ ] Manual synchronization endpoint
 - [ ] Retry queue
+- [ ] Metadata preview endpoint
 - [ ] Synchronization history
+- [ ] Bulk synchronization
+- [ ] Metadata version history
+- [ ] Rollback support
 - [ ] Audit logging
-- [ ] Parallel synchronization
+- [ ] Metrics dashboard
 - [ ] Webhook notifications
+- [ ] Scheduled synchronization jobs
+- [ ] Synchronization analytics
 
 ---
 
@@ -285,12 +324,12 @@ Potential future improvements include:
 |---------|--------|
 | Sprint 1 — Service Foundation | ✅ Completed |
 | Sprint 2 — MinIO Infrastructure Layer | ✅ Completed |
-| Sprint 3 — Metadata Discovery Engine | ⏳ Planned |
-| Sprint 4 — Metadata Reader | ⏳ Planned |
-| Sprint 5 — Metadata Update Engine | ⏳ Planned |
-| Sprint 6 — Metadata Writer | ⏳ Planned |
-| Sprint 7 — TCM Integration | ⏳ Planned |
-| Sprint 8 — Validation & Production Hardening | ⏳ Planned |
+| Sprint 3 — Metadata Discovery Engine | ✅ Completed |
+| Sprint 4 — Metadata Reader / Writer Infrastructure | ✅ Completed |
+| Sprint 5 — Metadata Update Engine | ✅ Completed |
+| Sprint 6 — Metadata Validation & Conflict Resolution | ✅ Completed |
+| Sprint 7 — TCM Integration | ✅ Completed |
+| Sprint 8 — Validation & Production Hardening | 🟡 Completed (Future enhancements pending) |
 
 ---
 
@@ -302,16 +341,24 @@ Potential future improvements include:
 
 ## Milestone 2
 
-✔ Authenticated communication established with MinIO.
+✔ Secure communication established with MinIO.
 
 ## Milestone 3
 
-⬜ Automatic metadata discovery.
+✔ Automatic metadata discovery implemented.
 
 ## Milestone 4
 
-⬜ Automatic metadata synchronization.
+✔ Automatic metadata synchronization implemented.
+
+## Milestone 5
+
+✔ Validation, duplicate detection, and overwrite workflow completed.
+
+## Milestone 6
+
+✔ Fully integrated Submit-based synchronization between TCM and MinIO.
 
 ## Final Milestone
 
-⬜ Fully integrated TCM ↔ MinIO Metadata Synchronization Service.
+🟡 Production-ready Metadata Synchronization Service with documented architecture, deployment standards, and future enhancement roadmap.

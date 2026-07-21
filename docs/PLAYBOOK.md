@@ -1,39 +1,50 @@
 # TCM ↔ MinIO Metadata Synchronization Playbook
 
-**Version:** 1.0 (Draft)
+**Version:** 2.0  
+**Author:** Akshay Sujesh
+
+> This document defines the standards, folder hierarchy, metadata resolution strategy,
+> synchronization workflow, overwrite handling, validation, and integration requirements
+> for the Metadata Synchronization Service.
 
 ---
 
 # 1. Purpose
 
-This document defines the standards, folder hierarchy, naming conventions, metadata resolution strategy, and integration requirements required for the Metadata Synchronization Service.
+This playbook defines the standards required for integrating the Test Case Management (TCM) platform with the Metadata Synchronization Service and MinIO.
 
-Any project following this standard will be compatible with the Metadata Synchronization Service without requiring project-specific code.
+Projects adhering to this standard can integrate without requiring project-specific code changes.
 
 ---
 
 # 2. Objective
 
-The Metadata Synchronization Service automatically synchronizes execution data from the Test Case Management (TCM) platform into the appropriate `metadata.json` file stored in MinIO.
+The Metadata Synchronization Service automatically synchronizes execution metadata from TCM into the appropriate `metadata.json` stored in MinIO.
 
 The tester should never manually edit metadata files.
 
-Workflow:
-
 ```
 Tester
-    │
+   │
 Execute Test
-    │
-Update Status / Label / Date
-    │
+   │
+Update Status / Label / Date / Run
+   │
 Click Submit
-    │
-TCM updates database
-    │
-Metadata Sync Service receives request
-    │
-Metadata updated inside MinIO
+   │
+Execution saved in TCM
+   │
+Metadata Sync Service invoked
+   │
+Validation
+   │
+Duplicate Detection
+   │
+Merge Metadata
+   │
+Upload metadata.json
+   │
+Synchronization Status returned to TCM
 ```
 
 ---
@@ -42,28 +53,28 @@ Metadata updated inside MinIO
 
 - TCM is the source of truth for execution data.
 - MinIO stores metadata.
-- Metadata Sync Service performs all synchronization.
+- Metadata Sync Service owns all MinIO operations.
 - TCM must not contain MinIO-specific logic.
-- Metadata Sync Service must not contain project-specific logic.
-- Folder conventions should eliminate the need for project-specific implementations.
+- Metadata Sync Service must remain project agnostic.
+- Folder conventions should eliminate project-specific implementations.
+- Synchronization failures must **not** prevent execution persistence.
 
 ---
 
 # 4. Bucket Naming Convention
 
-Each project must have exactly one MinIO bucket.
+Each project owns exactly one MinIO bucket.
 
 Rules:
 
-- Lowercase only
+- Lowercase
 - No spaces
-- No special characters where possible
-- Bucket name should be a normalized version of the TCM project name
+- Prefer alphanumeric names
 
-Examples
+Example:
 
 | TCM Project | Bucket |
-|------------|--------|
+|-------------|--------|
 | Legacy Ruckus | legacyruckus |
 | Enterprise AP | enterpriseap |
 | WiFi Controller | wificontroller |
@@ -72,12 +83,9 @@ Examples
 
 # 5. Root Folder Structure
 
-Every bucket must begin with:
-
 ```
-<Project Bucket>
-
-Test_Plan
+Bucket/
+└── Test_Plan/
 ```
 
 `Test_Plan` is mandatory.
@@ -86,80 +94,38 @@ Test_Plan
 
 # 6. Version Folder
 
-Immediately below `Test_Plan` should exist one or more customer/version folders.
-
-Example
-
 ```
-legacyruckus
-
-Test_Plan
-    V73
-    V74
-    V75
+Bucket/
+└── Test_Plan/
+    ├── V73/
+    ├── V74/
+    └── V75/
 ```
 
-The Metadata Sync Service will automatically resolve the latest version unless the user explicitly overrides it.
+Latest version is selected automatically unless explicitly overridden.
 
 ---
 
 # 7. Hierarchy Mirroring
 
-Everything after the Version folder must mirror the hierarchy displayed within TCM.
-
-Example
-
-TCM
+Everything after the Version folder mirrors the hierarchy inside TCM.
 
 ```
-Run
-
-R750
-
-BSS COLORING
-
-Verify BSS Color Advertisement
+Bucket/
+└── Test_Plan/
+    └── Version/
+        └── AP Model/
+            └── Feature/
+                └── Run/
 ```
 
-MinIO
-
-```
-legacyruckus
-
-Test_Plan
-
-V73
-
-R750
-
-BSS COLORING
-
-Verify BSS Color Advertisement
-```
-
-Folder names should match exactly.
+Folder names should match TCM exactly.
 
 ---
 
 # 8. Metadata File Naming
 
-Every metadata file must be named
-
-```
-metadata.json
-```
-
-Invalid
-
-```
-Metadata.json
-
-metadata_v2.json
-
-feature.json
-```
-
-Valid
+Only the following filename is supported:
 
 ```
 metadata.json
@@ -167,372 +133,11 @@ metadata.json
 
 ---
 
-# 9. Metadata Scope
+# 9. Supported Metadata Structures
 
-The Metadata Sync Service supports two metadata storage strategies.
-
-## Feature-Level Metadata
-
-One metadata file represents the entire feature.
-
-Example
+## Feature-Level
 
 ```
-BSS COLORING
-
-metadata.json
-
-TC-1
-
-TC-2
-
-TC-3
-```
-
-All executions update the same metadata file.
-
-Example project:
-
-Legacy Ruckus
-
----
-
-## Test Case-Level Metadata
-
-Each test case owns its own metadata.
-
-Example
-
-```
-AP Testing
-
-Connect 802.3af
-    metadata.json
-
-Client Connectivity
-    metadata.json
-
-Roaming
-    metadata.json
-```
-
-Each execution updates only its corresponding metadata file.
-
----
-
-# 10. Metadata Resolution Algorithm
-
-The Metadata Sync Service shall use the following deterministic algorithm.
-
-## Step 1
-
-Resolve
-
-```
-Bucket
-
-↓
-
-Test_Plan
-
-↓
-
-Version
-
-↓
-
-Feature Folder
-```
-
----
-
-## Step 2
-
-Check
-
-```
-Feature/metadata.json
-```
-
-Exists?
-
-YES
-
-↓
-
-Update feature metadata.
-
-STOP.
-
----
-
-NO
-
-↓
-
-Continue.
-
----
-
-## Step 3
-
-Navigate into the selected test case.
-
-Check
-
-```
-Feature/TestCase/metadata.json
-```
-
-Exists?
-
-YES
-
-↓
-
-Update test case metadata.
-
-STOP.
-
----
-
-NO
-
-↓
-
-Return
-
-```
-Metadata file not found.
-```
-
-The service should never recursively search the bucket.
-
----
-
-# 11. Metadata Sync Service Architecture
-
-The Metadata Synchronization Service is implemented as a standalone application.
-
-Responsibilities
-
-- Receive synchronization requests
-- Resolve metadata location
-- Read metadata
-- Update metadata
-- Upload metadata
-- Return synchronization result
-
-The service communicates with TCM through REST APIs.
-
----
-
-# 12. Payload Overview
-
-TCM submits execution information for an entire feature.
-
-The Metadata Sync Service decides whether the data should update
-
-- Feature metadata
-- Test case metadata
-
-This decision is based solely on where `metadata.json` exists.
-
-TCM should not contain any metadata resolution logic.
-
----
-
-# 13. Version Resolution
-
-Default
-
-The Metadata Sync Service automatically resolves the latest version.
-
-Override
-
-If a tester specifies another version, that version should be used instead.
-
----
-
-# 14. Adding a New Project
-
-When onboarding a new project:
-
-- Create project bucket
-- Create Test_Plan folder
-- Create version folders
-- Mirror the TCM hierarchy
-- Decide metadata scope
-- Name every metadata file `metadata.json`
-
-No service code changes should be required.
-
----
-
-# 15. Compatibility Checklist
-
-Before enabling synchronization verify
-
-- Bucket naming convention followed
-- Test_Plan exists
-- Version folder exists
-- Hierarchy mirrors TCM
-- metadata.json naming correct
-- Metadata scope selected
-- Folder names match TCM
-- Metadata path resolvable
-
----
-
-# 16. Future-Proofing Guidelines
-
-- Do not rename buckets.
-- Do not rename metadata.json.
-- Do not change folder hierarchy after Version.
-- Keep TCM hierarchy synchronized with MinIO.
-- Avoid project-specific implementations inside Metadata Sync Service.
-
----
-
-# 17. Breaking Changes
-
-The following changes require review before deployment.
-
-## Bucket Renaming
-
-Changing
-
-```
-legacyruckus
-```
-
-to
-
-```
-legacy_ruckus
-```
-
-breaks synchronization.
-
----
-
-## Test_Plan Renaming
-
-Changing
-
-```
-Test_Plan
-```
-
-to
-
-```
-Plans
-```
-
-breaks synchronization.
-
----
-
-## Version Placement
-
-Additional folders between
-
-```
-Test_Plan
-
-↓
-
-Version
-```
-
-are unsupported.
-
----
-
-## Folder Renaming
-
-Folder names must continue mirroring TCM.
-
----
-
-## metadata.json Renaming
-
-Only
-
-```
-metadata.json
-```
-
-is supported.
-
----
-
-## Metadata Relocation
-
-Only supported locations
-
-Feature level
-
-```
-Feature
-
-metadata.json
-```
-
-or
-
-Test case level
-
-```
-Feature
-
-Test Case
-
-metadata.json
-```
-
----
-
-## Payload Contract Changes
-
-Changes to the payload exchanged between TCM and Metadata Sync Service must be coordinated.
-
----
-
-## Metadata Schema Changes
-
-Changes to metadata.json schema may require updates to the Metadata Formatter.
-
----
-
-# 18. Metadata Sync Service Modules
-
-The service consists of the following logical components.
-
-- Receiver
-- MinIO Client
-- Bucket Resolver
-- Version Resolver
-- Metadata Path Resolver
-- Metadata Reader
-- Metadata Writer
-- Metadata Formatter
-- Synchronization Orchestrator
-
-Each module should have a single responsibility.
-
----
-
-# 19. Compliance Requirement
-
-Any project wishing to integrate with the Metadata Synchronization Service must comply with this standard.
-
-Projects intentionally deviating from these conventions require documented exceptions and corresponding updates to the Metadata Synchronization Service before synchronization is enabled.
-
-
-Feature Level:
-
 Bucket/
 └── Test_Plan/
     └── Version/
@@ -540,11 +145,15 @@ Bucket/
             └── Feature/
                 └── Run/
                     └── metadata.json
+```
 
+One metadata file stores all executions for the feature/run.
 
+---
 
-Test-Case Level:
+## Test Case-Level
 
+```
 Bucket/
 └── Test_Plan/
     └── Version/
@@ -553,3 +162,218 @@ Bucket/
                 └── TestCase/
                     └── Run/
                         └── metadata.json
+```
+
+Each test case maintains its own metadata.
+
+---
+
+# 10. Metadata Resolution Algorithm
+
+1. Resolve bucket.
+2. Resolve `Test_Plan`.
+3. Resolve version.
+4. Resolve AP Model.
+5. Resolve Feature.
+6. Resolve Run.
+7. Check for `metadata.json`.
+8. If not found, check supported test-case location.
+9. If still not found, return:
+
+```
+404 FILE_NOT_FOUND
+```
+
+The service never performs recursive searching.
+
+---
+
+# 11. Synchronization Workflow
+
+```
+Execution Saved
+        │
+        ▼
+Payload Built
+        │
+        ▼
+Metadata Sync Service
+        │
+        ▼
+Resolve Path
+        │
+        ▼
+Validate metadata.json
+        │
+        ▼
+Duplicate Detection
+        │
+        ▼
+Merge Metadata
+        │
+        ▼
+Upload metadata.json
+        │
+        ▼
+SUCCESS / FAILED
+```
+
+---
+
+# 12. Duplicate Detection & Overwrite
+
+Duplicate key:
+
+```
+case_ref_id
+```
+
+If duplicate exists:
+
+```
+409
+CASE_REF_ALREADY_EXISTS
+```
+
+Frontend prompts:
+
+```
+Metadata already exists.
+
+Overwrite?
+```
+
+If confirmed:
+
+```
+overwrite=true
+```
+
+Existing metadata entry is replaced.
+
+---
+
+# 13. Validation
+
+The service validates:
+
+- Bucket
+- Version
+- Folder path
+- metadata.json existence
+- JSON validity
+- Duplicate Case Ref IDs
+
+Returned error details may include:
+
+- metadataPath
+- invalidSegment
+- invalidPrefix
+
+---
+
+# 14. Payload Overview
+
+Payload contains:
+
+- case_ref_id
+- status
+- executed_at
+- firmware
+- run
+- custom_minio_path
+- overwrite
+
+The Metadata Sync Service decides where metadata should be written.
+
+---
+
+# 15. Synchronization States
+
+Supported states:
+
+- PENDING
+- SUCCESS
+- FAILED
+
+Synchronization failures are stored separately and do not rollback execution updates.
+
+---
+
+# 16. Compatibility Checklist
+
+Before enabling synchronization:
+
+- Bucket exists
+- Test_Plan exists
+- Version exists
+- Folder hierarchy mirrors TCM
+- metadata.json naming is correct
+- Supported metadata layout
+- Paths resolve correctly
+
+---
+
+# 17. Breaking Changes
+
+The following require review:
+
+- Bucket rename
+- Test_Plan rename
+- Version relocation
+- Folder rename
+- metadata.json rename
+- Payload contract changes
+- Metadata schema changes
+
+---
+
+# 18. Service Modules
+
+- API Receiver
+- Bucket Resolver
+- Version Resolver
+- Metadata Path Resolver
+- MinIO Client
+- Metadata Reader
+- Metadata Writer
+- Duplicate Detector
+- Metadata Formatter
+- Synchronization Orchestrator
+
+---
+
+# 19. Logging
+
+Recommended production logs:
+
+```
+[SYNC] Request received
+[SYNC] Path resolved
+[SYNC] Metadata downloaded
+[SYNC] Duplicate detected
+[SYNC] Merge complete
+[SYNC] Upload successful
+```
+
+Avoid development-only debug logging in production.
+
+---
+
+# 20. Future Enhancements
+
+- Background retry queue
+- Version history
+- Rollback
+- Audit logs
+- Bulk synchronization
+- Metrics dashboard
+- Notifications
+
+---
+
+# 21. Compliance
+
+Projects integrating with the Metadata Synchronization Service must comply with this standard.
+
+Projects deviating from these conventions require documented exceptions and service updates before synchronization is enabled.

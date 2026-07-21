@@ -164,3 +164,372 @@ The TCM Label field shall not be used for version resolution.
 - Synchronization requests no longer require version information.
 - Version management is centralized within the Metadata Synchronization Service.
 - Future projects remain independent of TCM labeling conventions.
+
+
+# Decision 006
+
+## Title
+
+Submit-Based Metadata Synchronization
+
+## Status
+
+Accepted
+
+## Context
+
+Execution data within TCM may undergo multiple edits before it is finalized. Synchronizing metadata after every field modification would generate unnecessary MinIO operations and increase the likelihood of inconsistent metadata.
+
+## Decision
+
+Metadata synchronization shall only occur when the user explicitly submits an execution.
+
+Editing execution details shall update only the local execution state within TCM. Metadata synchronization is triggered exclusively through the Submit action.
+
+## Reason
+
+- Reduces unnecessary synchronization requests.
+- Prevents partially completed execution data from being written.
+- Keeps synchronization aligned with finalized execution state.
+- Improves user experience.
+
+## Consequences
+
+### Advantages
+
+- Fewer synchronization requests.
+- Better data consistency.
+- Lower MinIO traffic.
+
+### Limitations
+
+- Metadata is not updated until the user submits the execution.
+
+---
+
+# Decision 007
+
+## Title
+
+Execution Persistence Independent of Metadata Synchronization
+
+## Status
+
+Accepted
+
+## Context
+
+Metadata synchronization depends on external infrastructure including MinIO and the Metadata Synchronization Service.
+
+Temporary failures should not prevent execution results from being stored within TCM.
+
+## Decision
+
+Execution updates shall always be committed to the TCM database before metadata synchronization begins.
+
+Synchronization failures shall be recorded independently without rolling back execution updates.
+
+## Reason
+
+- Prevents data loss.
+- Allows synchronization retry.
+- Decouples execution persistence from external dependencies.
+
+## Consequences
+
+### Advantages
+
+- Execution history remains intact.
+- Metadata synchronization failures become recoverable.
+
+### Limitations
+
+- Temporary inconsistency may exist until synchronization succeeds.
+
+---
+
+# Decision 008
+
+## Title
+
+Synchronization Status Tracking
+
+## Status
+
+Accepted
+
+## Context
+
+Users require visibility into whether metadata synchronization succeeded or failed.
+
+## Decision
+
+Each execution shall maintain an independent metadata synchronization status.
+
+Supported states:
+
+- PENDING
+- SUCCESS
+- FAILED
+
+Synchronization errors shall also be stored.
+
+## Reason
+
+Provides visibility into synchronization health without requiring log inspection.
+
+## Consequences
+
+### Advantages
+
+- Easier troubleshooting.
+- Supports future retry mechanisms.
+- Improves user feedback.
+
+---
+
+# Decision 009
+
+## Title
+
+Duplicate Metadata Detection
+
+## Status
+
+Accepted
+
+## Context
+
+Repeated synchronization of the same Case Reference ID may unintentionally create duplicate metadata entries.
+
+## Decision
+
+The Metadata Synchronization Service shall treat `case_ref_id` as the unique execution identifier.
+
+If a duplicate exists, synchronization shall terminate with:
+
+```
+409 CASE_REF_ALREADY_EXISTS
+```
+
+## Reason
+
+Prevents accidental duplication while allowing explicit overwrite.
+
+## Consequences
+
+### Advantages
+
+- Preserves metadata integrity.
+- Prevents duplicate execution entries.
+
+### Limitations
+
+- Requires user intervention before replacement.
+
+---
+
+# Decision 010
+
+## Title
+
+Explicit Overwrite Workflow
+
+## Status
+
+Accepted
+
+## Context
+
+Legitimate execution updates may require replacing existing metadata.
+
+Automatically overwriting metadata risks accidental data loss.
+
+## Decision
+
+Duplicate metadata shall never be overwritten automatically.
+
+If a duplicate exists:
+
+1. Return HTTP 409.
+2. Prompt the user.
+3. Retry synchronization using:
+
+```
+overwrite = true
+```
+
+Only then shall the existing metadata be replaced.
+
+## Reason
+
+Balances data protection with operational flexibility.
+
+## Consequences
+
+### Advantages
+
+- Prevents accidental overwrites.
+- Makes destructive operations explicit.
+
+### Limitations
+
+- Requires an additional synchronization request.
+
+---
+
+# Decision 011
+
+## Title
+
+Flexible Custom Metadata Paths
+
+## Status
+
+Accepted
+
+## Context
+
+Projects occasionally require metadata synchronization to locations that differ from the automatically generated hierarchy.
+
+## Decision
+
+The Metadata Synchronization Service shall support both:
+
+- Folder paths
+- Explicit metadata.json paths
+
+Examples:
+
+```
+Feature/Run/
+```
+
+or
+
+```
+Feature/Run/metadata.json
+```
+
+If omitted, automatic path generation shall be used.
+
+## Reason
+
+Provides flexibility while preserving standard behaviour.
+
+## Consequences
+
+### Advantages
+
+- Supports non-standard repository layouts.
+- Backwards compatible.
+
+---
+
+# Decision 012
+
+## Title
+
+Detailed Path Validation
+
+## Status
+
+Accepted
+
+## Context
+
+Returning only "File Not Found" provides insufficient information when diagnosing synchronization failures.
+
+## Decision
+
+Path validation errors shall include diagnostic information such as:
+
+- metadataPath
+- invalidSegment
+- invalidPrefix
+
+## Reason
+
+Improves troubleshooting without requiring server log access.
+
+## Consequences
+
+### Advantages
+
+- Faster debugging.
+- Better frontend error reporting.
+- Simplifies operational support.
+
+---
+
+# Decision 013
+
+## Title
+
+Stateless Synchronization Requests
+
+## Status
+
+Accepted
+
+## Context
+
+The Metadata Synchronization Service should remain horizontally scalable.
+
+## Decision
+
+Every synchronization request shall contain all information required to perform synchronization.
+
+The service shall not maintain synchronization session state.
+
+## Reason
+
+Enables stateless deployment behind load balancers and simplifies scaling.
+
+## Consequences
+
+### Advantages
+
+- Easier horizontal scaling.
+- Simpler deployments.
+- No shared session storage.
+
+---
+
+# Decision 014
+
+## Title
+
+Layered Service Architecture
+
+## Status
+
+Accepted
+
+## Context
+
+The Metadata Synchronization Service performs validation, path resolution, metadata processing, and MinIO interaction.
+
+## Decision
+
+The service shall follow a layered architecture comprising:
+
+- Controllers
+- Services
+- Resolvers
+- MinIO Client
+- Utilities
+
+Each component shall have a single responsibility.
+
+## Reason
+
+Improves maintainability, testing, and extensibility.
+
+## Consequences
+
+### Advantages
+
+- Easier unit testing.
+- Clear separation of concerns.
+- Simplified future enhancements.
