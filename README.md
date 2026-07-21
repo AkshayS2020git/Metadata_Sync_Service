@@ -10,12 +10,13 @@ A standalone Node.js Express service responsible for synchronizing Test Case Man
 - Duplicate `case_ref_id` detection
 - Overwrite support
 - Synchronization status tracking
-- REST API integration with TCM
+- REST API integration with the Test Case Management (TCM) platform
 
 ## Tech Stack
 
 - Node.js
 - Express.js
+- Express
 - MinIO SDK
 
 ## Project Structure
@@ -31,13 +32,15 @@ metadata-sync-service/
 
 ## Installation
 
+Install the project dependencies:
+
 ```bash
 npm install
 ```
 
 ## Environment Variables
 
-Create a `.env` file using `.env.example`.
+Create a `.env` file using `.env.example` and configure the required values.
 
 Example:
 
@@ -50,6 +53,18 @@ MINIO_USE_SSL=false
 MINIO_ACCESS_KEY=
 MINIO_SECRET_KEY=
 ```
+
+## Local Development Configuration
+
+This project was developed and tested locally alongside the Test Case Management (TCM) platform.
+
+For local development:
+
+- Configure the Metadata Synchronization Service to run on its local development port in the `.env` file.
+- Update the corresponding `.env` file in the TCM platform so that the Metadata Synchronization Service URL points to the locally running service (for example, `http://localhost:<PORT>`).
+- Ensure both the TCM platform and the Metadata Synchronization Service are running simultaneously before attempting metadata synchronization.
+
+> **Note:** The current localhost configuration is intended only for local development. When deploying to another environment, replace the localhost URLs and ports with the appropriate server addresses and ports.
 
 ## Running the Service
 
@@ -67,13 +82,13 @@ npm start
 
 ## Documentation
 
-Project documentation is available in the `docs/` folder:
+Additional project documentation is available in the `docs/` directory:
 
 - Playbook
 - Roadmap
 - Architecture Decisions
-- API Documentation (if available)
+- API Documentation (if applicable)
 
 ## Author
 
-Developed as part of an internship project at Alethea Communications Pvt. Ltd.
+Developed as part of an internship project at **Alethea Communications Pvt. Ltd.**
