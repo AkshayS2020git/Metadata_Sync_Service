@@ -1,6 +1,8 @@
 const { resolveBucket } = require("../resolvers/bucket.resolver");
-const { resolveLegacyFeatureName } = require("../helpers/legacyfeature.helper");
 const { resolveVersion } = require("../resolvers/version.resolver");
+const {
+    findInvalidPathSegment,
+} = require("../helpers/pathValidation.helper");
 const { normalizeCaseRefId } = require("../helpers/caseRef.helper");
 const {
   TEST_PLAN_FOLDER,
@@ -130,7 +132,7 @@ async function prepareMetadataSynchronization(payload, dependencies = {}) {
     TEST_PLAN_FOLDER,
     version,
     apModel,
-    resolveLegacyFeatureName(payload.feature),
+    payload.feature,
   ].join("/");
 
   console.log("[sync] Bucket:", bucket);
@@ -195,11 +197,26 @@ if (payload.custom_minio_path) {
       );
       console.log("[sync] Metadata loaded successfully.");
   } catch (error) {
-    console.error("[sync] Failed to read metadata:", error);
-    throw new Error(
-      `Unable to read metadata.json at "${metadataPath}": ${error.message}`
-    );
-  }
+
+    const invalid =
+        await findInvalidPathSegment(
+            bucket,
+            metadataPath
+        );
+
+    const syncError = new Error("File not found. Please check the specified path.");
+
+    syncError.code = "FILE_NOT_FOUND";
+    syncError.metadataPath = metadataPath;
+
+    if (invalid) {
+        syncError.invalidSegment = invalid.invalidSegment;
+        syncError.invalidPrefix = invalid.invalidPrefix;
+    }
+
+    throw syncError;
+}
+
 
   return {
     bucket,

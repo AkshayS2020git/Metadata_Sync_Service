@@ -47,6 +47,7 @@ exports.getBuckets = async (req, res) => {
   }
 };
 
+
 exports.syncMetadata = async (req, res) => {
   const validation = syncService.acceptSyncRequest(req.body);
 
@@ -67,6 +68,16 @@ exports.syncMetadata = async (req, res) => {
     });
   } catch (error) {
     console.error("[sync]", error);
+
+    if (error.code === "FILE_NOT_FOUND") {
+      return res.status(404).json({
+        errorCode: error.code,
+        message: error.message,
+        metadataPath: error.metadataPath,
+        invalidSegment: error.invalidSegment,
+        invalidPrefix: error.invalidPrefix,
+      });
+    }
 
     return res.status(500).json({
       error: error.message,
@@ -119,8 +130,18 @@ exports.getMetadata = async (req, res) => {
       metadata: prepared.existingMetadata,
     });
   } catch (error) {
-    return res.status(500).json({
-      error: error.message,
+  console.error("[sync]", error);
+
+  if (error.code === "FILE_NOT_FOUND") {
+    return res.status(404).json({
+      errorCode: error.code,
+      message: error.message,
+      metadataPath: error.metadataPath,
     });
   }
+
+  return res.status(500).json({
+    error: error.message,
+  });
+}
 };
