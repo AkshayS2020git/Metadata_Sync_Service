@@ -9,5 +9,6 @@ router.get('/buckets', syncController.getBuckets);
 router.get("/version", syncController.getLatestVersion);
 router.post('/sync', syncController.syncMetadata);
 router.get("/metadata", syncController.getMetadata);
+router.get("/runs", syncController.getAvailableRuns);
 
 module.exports = router;

@@ -153,3 +153,27 @@ exports.getMetadata = async (req, res) => {
   });
 }
 };
+
+exports.getAvailableRuns = async (req, res) => {
+  try {
+    const runs = await syncService.getAvailableRuns(req.query);
+
+    return res.status(200).json(runs);
+  } catch (error) {
+    console.error("[sync]", error);
+
+    if (error.code === "FILE_NOT_FOUND") {
+      return res.status(404).json({
+        errorCode: error.code,
+        message: error.message,
+        metadataPath: error.metadataPath,
+        invalidSegment: error.invalidSegment,
+        invalidPrefix: error.invalidPrefix,
+      });
+    }
+
+    return res.status(500).json({
+      error: error.message,
+    });
+  }
+};

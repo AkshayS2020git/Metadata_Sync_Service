@@ -1,5 +1,11 @@
 const { resolveBucket } = require("../resolvers/bucket.resolver");
 const { resolveVersion } = require("../resolvers/version.resolver");
+
+const {
+  resolveRunParent,
+  resolveRunParentPath,
+} = require("../helpers/runParentDiscovery.helper");
+
 const { 
   hasDuplicateExecution,
 } = require("../helpers/metadataDuplicate.helper");
@@ -15,11 +21,10 @@ const {
 const {
   discoverRepositoryType,
 } = require("../helpers/repositoryDiscovery.helper");
-const {
-  resolveRunParent,
-} = require("../helpers/runParentDiscovery.helper");
+
 const {
   discoverRunDirectory,
+  discoverRuns,
 } = require("../helpers/runDiscovery.helper");
 const {
   extractApModel,
@@ -151,6 +156,30 @@ async function prepareMetadataSynchronization(payload, dependencies = {}) {
 
   console.log("[sync] Repository Discovery:", repositoryDiscovery);
 
+  if (repositoryDiscovery.type === "UNKNOWN") {
+
+  const invalid = await findInvalidPathSegment(
+    bucket,
+    featureFolder
+  );
+
+  const err = new Error(
+    "Repository path could not be resolved."
+  );
+
+  err.code = "FILE_NOT_FOUND";
+  err.metadataPath = featureFolder;
+
+  if (invalid) {
+    err.invalidSegment = invalid.invalidSegment;
+    err.invalidPrefix = invalid.invalidPrefix;
+  }
+
+  throw err;
+}
+
+
+
   const caseRefId = normalizeCaseRefId(
     payload.case_ref_id ??
     payload.testCase ??
@@ -260,6 +289,73 @@ async function prepareMetadataSynchronization(payload, dependencies = {}) {
   };
 }
 
+async function getAvailableRuns(payload, dependencies = {}) {
+  const getBucket =
+    dependencies.resolveBucket ?? resolveBucket;
+
+  const getVersion =
+    dependencies.resolveVersion ?? resolveVersion;
+
+  const getRepository =
+    dependencies.discoverRepositoryType ??
+    discoverRepositoryType;
+
+  const getRunParentPath =
+  dependencies.resolveRunParentPath ??
+  resolveRunParentPath;
+
+  const listRuns =
+    dependencies.discoverRuns ??
+    discoverRuns;
+
+  const bucket = getBucket(payload.project);
+
+  const version = await getVersion(
+    bucket,
+    payload.versionOverride
+  );
+
+  const apModel = extractApModel(payload.testRun);
+
+  const featureFolder = [
+    TEST_PLAN_FOLDER,
+    version,
+    apModel,
+    payload.feature,
+  ].join("/");
+
+  const repositoryDiscovery =
+    await getRepository(
+      bucket,
+      featureFolder
+    );
+
+  if (repositoryDiscovery.type === "UNKNOWN") {
+    throw new Error("Repository could not be resolved.");
+  }
+
+  const caseRefId = normalizeCaseRefId(
+    payload.case_ref_id ??
+    payload.testCase ??
+    null
+  );
+
+  const {
+  runParentPath,
+} = getRunParentPath(
+  repositoryDiscovery,
+  featureFolder,
+  caseRefId,
+  payload.test_case
+);
+
+  return await listRuns(
+    bucket,
+    runParentPath
+  );
+}
+
+
 
 async function synchronizeMetadata(
   payload,
@@ -316,3 +412,6 @@ exports.synchronizeMetadata =
 
 exports.prepareMetadataSynchronization =
   prepareMetadataSynchronization;
+
+exports.getAvailableRuns =
+ getAvailableRuns;

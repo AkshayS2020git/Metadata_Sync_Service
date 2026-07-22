@@ -62,7 +62,41 @@ async function discoverRunDirectory(bucketName, runParentPath, run, listObjectsF
   };
 }
 
+async function discoverRuns(
+  bucketName,
+  runParentPath,
+  listObjectsFn = listObjects
+) {
+  if (!bucketName) {
+    throw new Error("Bucket name is required.");
+  }
+
+  if (!runParentPath) {
+    throw new Error("Run parent path is required.");
+  }
+
+  const normalizedParentPath = normalizeFolderPath(runParentPath);
+
+  const entries = await listObjectsFn(
+    bucketName,
+    normalizedParentPath
+  );
+
+  const runs = extractImmediateRunDirectories(
+    entries,
+    normalizedParentPath
+  );
+
+  return runs.sort((a, b) => {
+    const na = Number(a.replace(/^Run/i, ""));
+    const nb = Number(b.replace(/^Run/i, ""));
+    return na - nb;
+  });
+}
+
+
 module.exports = {
   discoverRunDirectory,
+  discoverRuns,
   extractImmediateRunDirectories,
 };

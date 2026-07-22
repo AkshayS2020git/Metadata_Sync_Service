@@ -45,11 +45,13 @@ function resolveLegacyTestcaseDirectory(testcaseDirectories, testcaseLabel) {
   return match ?? null;
 }
 
-/**
- * Resolves the directory that directly contains the requested Run folder.
- * This only uses repository-discovery output and never inspects metadata.
- */
-function resolveRunParent(repositoryDiscovery, featureFolder, run, caseRefId = null, testcaseLabel = null) {
+
+function resolveRunParentPath(
+  repositoryDiscovery,
+  featureFolder,
+  caseRefId = null,
+  testcaseLabel = null
+) {
   if (!repositoryDiscovery) {
     throw new Error("Repository discovery result is required.");
   }
@@ -62,10 +64,6 @@ function resolveRunParent(repositoryDiscovery, featureFolder, run, caseRefId = n
   const featurePath = normalizeFolderPath(featureFolder);
 
   if (repositoryType === "FEATURE") {
-    if (!repositoryDiscovery.runDirectories?.includes(run)) {
-      throw new Error(`Run directory "${run}" does not exist in feature "${featureFolder}".`);
-    }
-
     return {
       runParentPath: featurePath,
       repositoryType,
@@ -79,34 +77,54 @@ function resolveRunParent(repositoryDiscovery, featureFolder, run, caseRefId = n
 
     let testcaseDirectory = caseRefId;
 
-if (!repositoryDiscovery.testcaseDirectories?.includes(caseRefId)) {
-  testcaseDirectory = resolveLegacyTestcaseDirectory(
-    repositoryDiscovery.testcaseDirectories ?? [],
-    testcaseLabel
-  );
+    if (!repositoryDiscovery.testcaseDirectories?.includes(caseRefId)) {
+      testcaseDirectory = resolveLegacyTestcaseDirectory(
+        repositoryDiscovery.testcaseDirectories ?? [],
+        testcaseLabel
+      );
 
-  if (!testcaseDirectory) {
-    throw new Error(
-      `Testcase directory "${caseRefId}" does not exist in feature "${featureFolder}".`
-    );
-  }
+      if (!testcaseDirectory) {
+        throw new Error(
+          `Testcase directory "${caseRefId}" does not exist in feature "${featureFolder}".`
+        );
+      }
 
-  console.warn(
-    `[sync] Using legacy testcase directory "${testcaseDirectory}".`
-  );
-}
+      console.warn(
+        `[sync] Using legacy testcase directory "${testcaseDirectory}".`
+      );
+    }
 
-return {
-  runParentPath: `${featurePath}${testcaseDirectory}/`,
-  repositoryType,
-};
+    return {
+      runParentPath: `${featurePath}${testcaseDirectory}/`,
+      repositoryType,
+    };
   }
 
   throw new Error(
-    `Unable to determine Run parent: repository type "${repositoryType ?? "UNKNOWN"}" is unsupported.`,
+    `Repository type "${repositoryType}" is not supported.`
+  );
+}
+
+/**
+ * Resolves the directory that directly contains the requested Run folder.
+ * This only uses repository-discovery output and never inspects metadata.
+ */
+function resolveRunParent(
+  repositoryDiscovery,
+  featureFolder,
+  run,
+  caseRefId = null,
+  testcaseLabel = null
+) {
+  return resolveRunParentPath(
+    repositoryDiscovery,
+    featureFolder,
+    caseRefId,
+    testcaseLabel
   );
 }
 
 module.exports = {
   resolveRunParent,
+  resolveRunParentPath,
 };
